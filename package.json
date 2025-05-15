@@ -1,0 +1,6 @@
+{
+  "name": "redpanda-poc",
+  "scripts": {
+    "rpk": "docker compose exec -it redpanda rpk"
+  }
+}
