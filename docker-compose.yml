@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --overprovisioned
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --node-id 0
+      - --check=false
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+      - --schema-registry-addr 0.0.0.0:8081
+      - --mode dev-container
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
+      - "9092:9092"
+  console:
+    container_name: redpanda-console
+    image: docker.redpanda.com/redpandadata/console:v3.1.0
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml && /app/console'
+    network_mode: "service:redpanda"
+    volumes:
+      - ./config:/tmp/config/
+    environment:
+      CONFIG_FILEPATH: ${CONFIG_FILEPATH:-/tmp/config.yml}
+      CONSOLE_CONFIG_FILE: |
+        # Configure a connection to the Redpanda cluster
+        # See https://docs.redpanda.com/current/console/config/connect-to-redpanda/
+        kafka:
+          brokers: ["redpanda:9092"]
+        schemaRegistry:
+          enabled: true
+          urls: ["http://redpanda:8081"]
+        console:
+          # Configures Redpanda Console to fetch topic documentation from GitHub and display it in the UI.
+          # See https://docs.redpanda.com/current/console/config/topic-documentation/
+          topicDocumentation:
+            enabled: true
+            git:
+              enabled: true
+              repository:
+                url: https://github.com/redpanda-data/docs
+                branch: main
+                baseDirectory: tests/docker-compose
+    depends_on: [ 'redpanda' ]
