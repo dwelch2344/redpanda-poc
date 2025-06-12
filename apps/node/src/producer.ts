@@ -1,6 +1,8 @@
-import { Kafka, Producer } from 'kafkajs';
+import { Kafka, Partitioners, Producer } from 'kafkajs';
 import { SchemaRegistry, SchemaType, readAVSC } from '@kafkajs/confluent-schema-registry';
 import path from 'path';
+
+const seed = (Math.random() + 1).toString(36).substring(7)
 
 const kafka = new Kafka({
   clientId: 'producer-client',
@@ -10,10 +12,13 @@ const kafka = new Kafka({
 const registry = new SchemaRegistry({ host: 'http://localhost:8081' });
 
 const runProducer = async () => {
-  const producer = kafka.producer();
+  const producer = kafka.producer({
+    createPartitioner: Partitioners.DefaultPartitioner,
+    transactionTimeout: 5000
+  });
   await producer.connect();
 
-  const schemaPath = path.join(__dirname, '..', '..', 'schemas', 'user.avsc');
+  const schemaPath = path.join(__dirname, '..', '..', '..', 'schemas', 'user.avsc');
   const schema = readAVSC(schemaPath);
   const { id } = await registry.register({ type: SchemaType.AVRO, schema: JSON.stringify(schema) });
 
@@ -22,18 +27,19 @@ const runProducer = async () => {
     await new Promise(r => setTimeout(r, 1 * 1000))
   }
 
-
   await producer.disconnect();
 };
 
 async function iterate(schemaId: number, itr: number, producer: Producer) {
-  const payload = { id: 1, name: 'User ' + itr, email: 'alice@example.com' };
+  const payload = { id: itr, name: `User ${itr} @ ${seed}` + itr, email: `user+${itr}@${seed}.com` };
   const encodedValue = await registry.encode(schemaId, payload);
 
   await producer.send({
     topic: 'users',
     messages: [{ value: encodedValue }],
   });
+
+  console.log(`Sent user ${payload.email}`)
 }
 
 runProducer().catch(console.error);

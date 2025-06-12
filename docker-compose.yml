@@ -1,6 +1,22 @@
 version: "3.8"
 
 services:
+  postgres:
+    image: postgres:15.2-alpine
+    environment:
+      ### don't use pg root
+      # app database user/password/name = redpanda_demo/redpanda_demo/redpanda_demo
+      # see app-db-setup.sh
+
+      - POSTGRES_HOME="/postgres"
+      - POSTGRES_PASSWORD=root_pg_password
+    ports:
+      - 5432:5432
+    volumes:
+      - ./docker/postgres/init-scripts/app-db-setup.sh:/docker-entrypoint-initdb.d/app-db-setup.sh
+      - ./local/data/postgres/data:/var/lib/postgresql/data
+      - ./:/host_os
+
   redpanda:
     image: docker.redpanda.com/redpandadata/redpanda:latest
     container_name: redpanda
@@ -23,6 +39,8 @@ services:
       - "8081:8081"
       - "8082:8082"
       - "9092:9092"
+    volumes:
+      - .:/host_os/
   console:
     container_name: redpanda-console
     image: docker.redpanda.com/redpandadata/console:v3.1.0
@@ -31,6 +49,7 @@ services:
     network_mode: "service:redpanda"
     volumes:
       - ./config:/tmp/config/
+      - ./:/host_os
     environment:
       CONFIG_FILEPATH: ${CONFIG_FILEPATH:-/tmp/config.yml}
       CONSOLE_CONFIG_FILE: |

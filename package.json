@@ -1,6 +1,11 @@
 {
   "name": "redpanda-poc",
   "scripts": {
-    "rpk": "docker compose exec -it redpanda rpk"
+    "rp:run": "docker compose exec -it redpanda",
+    "rp:bash": "npm run rp:run bash",
+    "rp:rpk": "npm run rp:run rpk",
+    "db:psql": "docker compose exec postgres psql -U redpanda_demo redpanda_demo",
+    "db:reset": "docker compose stop && rm -rf local/data/postgres",
+    "_dummy:debug": "npm run rp:run CGROUP=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10) rpk connect run /host_os/connect/samples/user.stream.yml"
   }
 }

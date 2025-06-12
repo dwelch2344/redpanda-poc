@@ -1,0 +1,35 @@
+### RUN WITH
+# CGROUP=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10) rpk connect run /host_os/connect/samples/user.stream.direct.yml
+logger:
+  level: DEBUG
+
+input:
+  label: "from_kafka_topic"
+  kafka:
+    topics: ["users"]
+    consumer_group: "${CGROUP}1"
+    addresses: 
+      - redpanda:9092
+
+pipeline:
+  threads: 4  # You can adjust this based on your CPU resources
+  processors:
+    - schema_registry_decode:
+        avro:
+          raw_unions: true
+          preserve_logical_types: true
+        cache_duration: 10m
+        url: "http://redpanda:8081"
+    - bloblang: |
+        root = this # note: don't turn this into a string (unlike other example)
+
+output:
+  # stdout: {}  # Use this to debug your output
+  sql_insert:
+    driver: postgres
+    dsn: "postgres://redpanda_demo:redpanda_demo@postgres:5432/redpanda_demo?sslmode=disable"
+    # USE THE TABLE DIRECTLY
+    table: iam.user
+    columns: ["name", "email", "external_id"]
+    args_mapping: |
+      root = [this.name, this.email, this.id]

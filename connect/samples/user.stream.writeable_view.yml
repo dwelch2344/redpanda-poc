@@ -1,0 +1,36 @@
+### RUN WITH
+# CGROUP=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10) rpk connect run /host_os/connect/samples/user.stream.writeable_view.yml
+logger:
+  level: DEBUG
+
+input:
+  label: "from_kafka_topic"
+  kafka:
+    topics: ["users"]
+    consumer_group: "${CGROUP}1"
+    addresses: 
+      - redpanda:9092
+
+pipeline:
+  threads: 4  # You can adjust this based on your CPU resources
+  processors:
+    - schema_registry_decode:
+        avro:
+          raw_unions: true
+          preserve_logical_types: true
+        cache_duration: 10m
+        url: "http://redpanda:8081"
+    - bloblang: |
+        root = this
+
+output:
+  # stdout: {}  # Use this to debug your output
+  sql_insert:
+    driver: postgres
+    dsn: "postgres://redpanda_demo:redpanda_demo@postgres:5432/redpanda_demo?sslmode=disable"
+    # NOTE: we're using a writeable view that takes JSONB parameter
+    #    not sure why, but we have to double-string() so it plays nicely
+    table: iam.user_sync_vw
+    columns: ["payload"]
+    args_mapping: |
+      root = [this.string().string()]
